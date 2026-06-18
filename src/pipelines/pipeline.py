@@ -1,81 +1,75 @@
-# from langchain.agents import create_agent
-# from langchain_openai import ChatOpenAI
-# from langchain_core.prompts import ChatPromptTemplate
-# from langchain_core.output_parsers import StrOutputParser
-# from src.tools.tools import web_search, scrape_url
-# from dotenv import load_dotenv
+from src.agents.agents import build_search_agent, build_reader_agent, writer_chain, critic_chain
 
-# load_dotenv()
+def run_research_pipeline(topic : str) -> dict:
 
-# # Model Initialization
-# llm = ChatOpenAI(model = "gpt-4o-mini",temperature=0)
+    state = {}
 
+    #step 1 -search agent working 
+    print("\n"+" ="*50)
+    print("step 1 - search agent is working ...")
+    print("="*50)
 
-# # 1st Agent : Search Agent
-# def build_search_agent():
-#     return create_agent(
-#         model= llm,
-#         tools=[web_search],
-       
-#     )
+    search_agent = build_search_agent()
+    search_result = search_agent.invoke({
+        "messages" : [("user", f"Find recent, reliable and detailed information about: {topic}")]
+    })
 
-# # 2nd Agent : Reader Agent
-# def build_reader_agent():
-#     return create_agent(
-#         model= llm,
-#         tools=[scrape_url],
-
-#     )
+    tool_outputs = []
+    for msg in search_result["messages"]:
+      if msg.__class__.__name__ == "ToolMessage":
+        tool_outputs.append(msg.content)
+    state["search_results"] = "\n".join(tool_outputs)
+    print("\n search result ",state['search_results'])
 
 
-# #writer chain 
+    #step 2 - reader agent 
+    print("\n"+" ="*50)
+    print("step 2 - Reader agent is scraping top resources ...")
+    print("="*50)
 
-# writer_prompt = ChatPromptTemplate.from_messages([
-#     ("system", "You are an expert research writer. Write clear, structured and insightful reports."),
-#     ("human", """Write a detailed research report on the topic below.
+    reader_agent = build_reader_agent()
+    reader_result = reader_agent.invoke({
+        "messages": [("user",
+            f"Based on the following search results about '{topic}', "
+            f"pick the most relevant URL and scrape it for deeper content.\n\n"
+            f"Search Results:\n{state['search_results'][:800]}"
+        )]
+    })
 
-# Topic: {topic}
+    state['scraped_content'] = reader_result['messages'][-1].content
 
-# Research Gathered:
-# {research}
-
-# Structure the report as:
-# - Introduction
-# - Key Findings (minimum 3 well-explained points)
-# - Conclusion
-# - Sources (list all URLs found in the research)
-
-# Be detailed, factual and professional."""),
-# ])
-
-# writer_chain = writer_prompt | llm | StrOutputParser()
+    print("\nscraped content: \n", state['scraped_content'])
 
 
+    #step 3 - writer chain 
+
+    print("\n"+" ="*50)
+    print("step 3 - Writer is drafting the report ...")
+    print("="*50)
+
+    research_combined = (
+        f"SEARCH RESULTS : \n {state['search_results']} \n\n"
+        f"DETAILED SCRAPED CONTENT : \n {state['scraped_content']}"
+    )
+
+    state["report"] = writer_chain.invoke({
+        "topic" : topic,
+        "research" : research_combined
+    })
+
+    print("\n Final Report\n",state['report'])
 
 
-# #critic_chain 
+    #step 4 - critic report 
 
-# critic_prompt = ChatPromptTemplate.from_messages([
-#      ("system", "You are a sharp and constructive research critic. Be honest and specific."),
-#     ("human", """Review the research report below and evaluate it strictly.
+    print("\n"+" ="*50)
+    print("step 4 - critic is reviewing the report ")
+    print("="*50)
 
-# Report:
-# {report}
+    state["feedback"] = critic_chain.invoke({
+        "report":state['report']
+    })
 
-# Respond in this exact format:
+    print("\n critic report \n", state['feedback'])
 
-# Score: X/10
-
-# Strengths:
-# - ...
-# - ...
-
-# Areas to Improve:
-# - ...
-# - ...
-
-# One line verdict:
-# ..."""),
-# ])
-
-# critic_chain = critic_prompt | llm | StrOutputParser()
+    return state
