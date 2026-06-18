@@ -75,7 +75,7 @@ def scrape_url(url: str) -> str:
 
         if extracted and len(extracted.strip()) > 200:
             cleaned = re.sub(r'\s+', ' ', extracted)
-            return cleaned[:5000]
+            return cleaned[:3000]
 
         # ──────────────────────────────────────────────────
         # Strategy 2 → readability

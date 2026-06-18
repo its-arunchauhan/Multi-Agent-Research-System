@@ -1,13 +1,13 @@
-from src.agents.agents import build_reader_agent
+from src.agents.agents import build_search_agent
 
-agent = build_reader_agent()
+agent = build_search_agent()
 
 response = agent.invoke(
     {
         "messages": [
             (
                 "user",
-                "Read and summarize https://blog.google/innovation-and-ai/"
+                "Find recent information about AI agents"
             )
         ]
     }
